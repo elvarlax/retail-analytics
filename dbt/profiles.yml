@@ -3,8 +3,8 @@ retail_analytics:
   outputs:
     dev:
       type: postgres
-      host: warehouse
-      port: 5432
+      host: "{{ env_var('DBT_HOST', 'warehouse') }}"
+      port: "{{ env_var('DBT_PORT', '5432') | int }}"
       user: postgres
       password: postgres
       dbname: retail_warehouse

@@ -1,0 +1,62 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    description: "Raw tables loaded verbatim from the RetailInventory OLTP database."
+    tables:
+      - name: customers
+        description: "Registered customers."
+        columns:
+          - name: id
+            description: "Primary key (uuid). Renamed to customer_id in staging."
+          - name: first_name
+            description: "Customer first name."
+          - name: last_name
+            description: "Customer last name."
+          - name: email
+            description: "Unique customer email address."
+
+      - name: products
+        description: "Product catalogue."
+        columns:
+          - name: id
+            description: "Primary key (uuid). Renamed to product_id in staging."
+          - name: name
+            description: "Product display name."
+          - name: sku
+            description: "Unique stock-keeping unit identifier."
+          - name: price
+            description: "Unit sale price. Renamed to unit_price in staging."
+          - name: stock_quantity
+            description: "Current stock level."
+
+      - name: orders
+        description: "Customer orders with status and totals."
+        columns:
+          - name: id
+            description: "Primary key (uuid). Renamed to order_id in staging."
+          - name: customer_id
+            description: "Foreign key to customers.id."
+          - name: status
+            description: "Order status as integer. 0=Pending, 1=Completed, 2=Cancelled. Mapped to text in staging."
+          - name: total_amount
+            description: "Computed order total (sum of line items at time of creation)."
+          - name: created_at
+            description: "UTC timestamp when the order was placed."
+          - name: completed_at
+            description: "UTC timestamp when the order was completed. Null for non-completed orders."
+
+      - name: order_items
+        description: "Individual line items within each order."
+        columns:
+          - name: id
+            description: "Primary key (uuid). Renamed to order_item_id in staging."
+          - name: order_id
+            description: "Foreign key to orders.id."
+          - name: product_id
+            description: "Foreign key to products.id."
+          - name: quantity
+            description: "Number of units ordered."
+          - name: unit_price
+            description: "Price per unit at time of order creation."

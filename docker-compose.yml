@@ -1,0 +1,55 @@
+services:
+  warehouse:
+    image: postgres:16
+    container_name: retail_analytics_warehouse
+    restart: always
+    environment:
+      POSTGRES_DB: retail_warehouse
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5434:5432"
+    volumes:
+      - warehouse_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  extract:
+    build: ./extract
+    container_name: retail_analytics_extract
+    restart: "no"
+    depends_on:
+      warehouse:
+        condition: service_healthy
+    environment:
+      SOURCE_DB_HOST: host.docker.internal
+      SOURCE_DB_PORT: 5433
+      SOURCE_DB_NAME: retail_inventory
+      SOURCE_DB_USER: postgres
+      SOURCE_DB_PASSWORD: postgres
+
+      TARGET_DB_HOST: warehouse
+      TARGET_DB_PORT: 5432
+      TARGET_DB_NAME: retail_warehouse
+      TARGET_DB_USER: postgres
+      TARGET_DB_PASSWORD: postgres
+
+  dbt:
+    image: ghcr.io/dbt-labs/dbt-postgres:1.9.0
+    container_name: retail_analytics_dbt
+    volumes:
+      - ./dbt:/usr/app
+    working_dir: /usr/app
+    depends_on:
+      warehouse:
+        condition: service_healthy
+    environment:
+      DBT_PROFILES_DIR: /usr/app
+    profiles:
+      - dbt
+
+volumes:
+  warehouse_data:

@@ -1,0 +1,169 @@
+version: 2
+
+models:
+  - name: dim_customers
+    description: >
+      Customer dimension. One row per customer. Conforms to the star schema —
+      join to fact_order_items or fact_orders on customer_id.
+    columns:
+      - name: customer_id
+        description: "Primary key (uuid)."
+        tests: [unique, not_null]
+      - name: first_name
+        description: "Customer given name."
+      - name: last_name
+        description: "Customer family name."
+      - name: full_name
+        description: "Concatenated display name for reporting (first_name || ' ' || last_name)."
+      - name: email
+        description: "Unique email address. Natural key."
+        tests: [unique, not_null]
+
+  - name: dim_products
+    description: >
+      Product dimension. One row per product. stock_quantity is excluded —
+      it is an operational measure that changes continuously and belongs in a
+      separate inventory fact, not in a dimension. Conforms to the star schema —
+      join to fact_order_items on product_id.
+    columns:
+      - name: product_id
+        description: "Primary key (uuid)."
+        tests: [unique, not_null]
+      - name: product_name
+        description: "Product display name."
+      - name: sku
+        description: "Stock-keeping unit identifier. Unique per product."
+        tests: [unique, not_null]
+      - name: unit_price
+        description: >
+          Current list price per unit. Note: fact_order_items.unit_price reflects
+          the price at time of order (snapshot), which may differ from this value.
+
+  - name: dim_date
+    description: >
+      Date dimension generated via generate_series from the earliest order date
+      to today. One row per calendar day. Conforms to the star schema —
+      join to fact_order_items or fact_orders on date_key.
+    columns:
+      - name: date_key
+        description: "Primary key (calendar date). Matches fact_order_items.date_key and fact_orders.date_key."
+        tests: [unique, not_null]
+      - name: year
+        description: "Calendar year (e.g. 2024)."
+      - name: quarter
+        description: "Calendar quarter (1–4)."
+      - name: month
+        description: "Calendar month number (1–12)."
+      - name: month_name
+        description: "Full month name (e.g. 'January   '). Note: PostgreSQL to_char pads to 9 characters."
+      - name: week_of_year
+        description: "ISO week number (1–53)."
+      - name: day
+        description: "Day of the month (1–31)."
+      - name: day_of_week
+        description: "Day of the week as integer (0=Sunday, 6=Saturday)."
+      - name: day_name
+        description: "Full day name (e.g. 'Monday    '). Note: PostgreSQL to_char pads to 9 characters."
+      - name: is_weekend
+        description: "True for Saturday (6) and Sunday (0)."
+
+  - name: fact_order_items
+    tests:
+      - dbt_expectations.expect_table_row_count_to_equal_other_table:
+          compare_model: ref("stg_order_items")
+    description: >
+      Fact table at order-line grain. One row per order line item.
+      Additive measures: quantity, line_amount. Semi-additive: order_total_amount
+      (sums correctly within an order, but double-counts across orders if not
+      deduplicated by order_id).
+      status and order_id are degenerate dimensions — stored directly on the fact
+      with no corresponding dimension table.
+      For order-level aggregations (AOV, order counts), prefer fact_orders.
+    columns:
+      - name: order_item_id
+        description: "Primary key. Grain: one row per order line item."
+        tests: [unique, not_null]
+      - name: order_id
+        description: "Degenerate dimension. The operational order identifier."
+        tests: [not_null]
+      - name: customer_id
+        description: "Foreign key to dim_customers."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_customers')
+              field: customer_id
+      - name: product_id
+        description: "Foreign key to dim_products."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_products')
+              field: product_id
+      - name: date_key
+        description: "Foreign key to dim_date. Equals order_created_at::date."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_date')
+              field: date_key
+      - name: quantity
+        description: "Units purchased on this line. Fully additive."
+      - name: unit_price
+        description: "Price per unit at time of order (snapshot). Independent of the current dim_products.unit_price."
+      - name: line_amount
+        description: "Gross line revenue: quantity × unit_price. Fully additive."
+      - name: order_total_amount
+        description: >
+          Order-level total denormalised to the line-item grain. Semi-additive —
+          use count(distinct order_id) or filter to one row per order before summing.
+          For clean order-level totals, use fact_orders.total_amount.
+      - name: is_completed
+        description: "True when status = 'Completed'. Convenience flag — avoids a CASE expression in every query."
+      - name: status
+        description: "Degenerate dimension. Order lifecycle status (Pending / Completed / Cancelled)."
+      - name: order_created_at
+        description: "UTC timestamp when the order was placed. date_key is derived from this column."
+      - name: order_completed_at
+        description: "UTC timestamp when the order was completed. Null for Pending and Cancelled orders."
+
+  - name: fact_orders
+    tests:
+      - dbt_expectations.expect_table_row_count_to_equal_other_table:
+          compare_model: ref("stg_orders")
+    description: >
+      Fact table at order grain. One row per order.
+      Use this fact for order-level aggregations: average order value (AOV),
+      order counts, conversion rates, and customer order frequency.
+      For line-level revenue and product analysis, use fact_order_items.
+    columns:
+      - name: order_id
+        description: "Primary key. Grain: one row per order. Also a degenerate dimension (operational key)."
+        tests: [unique, not_null]
+      - name: customer_id
+        description: "Foreign key to dim_customers."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_customers')
+              field: customer_id
+      - name: date_key
+        description: "Foreign key to dim_date. Equals order_created_at::date."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_date')
+              field: date_key
+      - name: total_amount
+        description: "Order total. Fully additive at order grain."
+        tests: [not_null]
+      - name: is_completed
+        description: "True when status = 'Completed'. Use for filtering completed orders without a CASE expression."
+      - name: status
+        description: "Degenerate dimension. Order lifecycle status (Pending / Completed / Cancelled)."
+      - name: order_month
+        description: "First day of the month the order was placed. Convenience column for month-level aggregations."
+      - name: order_created_at
+        description: "UTC timestamp when the order was placed. date_key is derived from this column."
+      - name: order_completed_at
+        description: "UTC timestamp when the order was completed. Null for Pending and Cancelled orders."

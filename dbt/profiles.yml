@@ -1,0 +1,12 @@
+retail_analytics:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: warehouse
+      port: 5432
+      user: postgres
+      password: postgres
+      dbname: retail_warehouse
+      schema: analytics
+      threads: 4

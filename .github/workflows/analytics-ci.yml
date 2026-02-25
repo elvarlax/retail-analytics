@@ -2,24 +2,26 @@ name: Retail Analytics - ELT & dbt CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
     # ---------------------------------------------------------
-    # Service containers (accessible via localhost from runner)
+    # Service containers
     # Format: HOST_PORT:CONTAINER_PORT
+    # Vinstri = outside (runner)
+    # Hægri  = inside (container)
     # ---------------------------------------------------------
     services:
-      # OLTP source database
+      # OLTP database (source system)
       postgres:
         image: postgres:16
         ports:
-          - 5433:5432   # outside:inside
+          - 5433:5432
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -34,7 +36,7 @@ jobs:
       warehouse:
         image: postgres:16
         ports:
-          - 5434:5432   # outside:inside
+          - 5434:5432
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -46,9 +48,8 @@ jobs:
           --health-retries 5
 
     steps:
-
       # ---------------------------------------------------------
-      # Checkout analytics repo (current)
+      # Checkout analytics repo
       # ---------------------------------------------------------
       - name: Checkout retail-analytics
         uses: actions/checkout@v3
@@ -63,7 +64,7 @@ jobs:
           path: retail-inventory
 
       # ---------------------------------------------------------
-      # Wait until Postgres services are ready
+      # Wait for Postgres services to become healthy
       # ---------------------------------------------------------
       - name: Wait for Postgres
         run: |
@@ -71,8 +72,7 @@ jobs:
           until pg_isready -h localhost -p 5434 -U postgres; do sleep 2; done
 
       # ---------------------------------------------------------
-      # Apply EF Core migrations to OLTP database
-      # This ensures analytics reads real schema, not guessed schema
+      # Apply EF Core migrations (creates OLTP schema)
       # ---------------------------------------------------------
       - name: Set up .NET 10
         uses: actions/setup-dotnet@v4
@@ -80,20 +80,23 @@ jobs:
           dotnet-version: "10.0.x"
 
       - name: Install dotnet-ef
-        run: dotnet tool install --global dotnet-ef
+        run: |
+          dotnet tool install --global dotnet-ef
+          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
 
       - name: Apply retail-inventory migrations
         working-directory: retail-inventory
         env:
           ConnectionStrings__DefaultConnection: Host=localhost;Port=5433;Database=retail_inventory;Username=postgres;Password=postgres
         run: |
-          dotnet restore RetailInventory.Api/RetailInventory.Api.csproj
+          dotnet restore
+          dotnet build --configuration Release
           dotnet ef database update \
             --project RetailInventory.Api/RetailInventory.Api.csproj \
             --startup-project RetailInventory.Api/RetailInventory.Api.csproj
 
       # ---------------------------------------------------------
-      # Python environment for extract + dbt
+      # Python setup for extract + dbt
       # ---------------------------------------------------------
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -106,8 +109,7 @@ jobs:
           pip install psycopg[binary] python-dotenv dbt-postgres
 
       # ---------------------------------------------------------
-      # Extract step
-      # Reads OLTP (5433) → writes raw layer in warehouse (5434)
+      # Extract step (OLTP → raw)
       # ---------------------------------------------------------
       - name: Run Extract Script
         run: python extract/extract.py
@@ -125,9 +127,8 @@ jobs:
           TARGET_DB_PASSWORD: postgres
 
       # ---------------------------------------------------------
-      # dbt build
-      # In GitHub Actions, services are reachable via localhost
-      # so we override DBT_HOST and DBT_PORT.
+      # dbt build (run + test)
+      # Override host/port because CI uses localhost
       # ---------------------------------------------------------
       - name: dbt deps
         working-directory: dbt

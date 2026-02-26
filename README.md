@@ -87,7 +87,7 @@ Generated via the `retail-inventory` admin data generator. Customers, products, 
 
 ## Testing Strategy
 
-78 data tests across all four layers.
+89 data tests across all four layers.
 
 **Staging** — source data quality:
 `unique`, `not_null` on all primary and natural keys, `accepted_values`

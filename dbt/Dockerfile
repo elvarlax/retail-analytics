@@ -1,11 +1,9 @@
 FROM python:3.11-slim
 
-WORKDIR /app
+WORKDIR /usr/app
 
 COPY requirements.txt ./requirements.txt
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY extract/extract.py .
-
-CMD ["python", "extract.py"]
+ENTRYPOINT ["dbt"]

@@ -1,24 +1,17 @@
--- Canonical line-item view. Joins order items, their parent order, and the product.
--- This is the single complex join in the pipeline.
+-- Canonical line-item view. Joins order items to their parent order.
+-- Derives order_date, is_completed, and carries order context down to the line grain.
 -- fact_order_items is a simple projection over this model with no additional joins.
 with order_items as (
     select * from {{ ref('stg_order_items') }}
 ),
 orders as (
     select * from {{ ref('stg_orders') }}
-),
-products as (
-    select * from {{ ref('stg_products') }}
 )
 select
     oi.order_item_id,
     oi.order_id,
     o.customer_id,
     oi.product_id,
-
-    -- product context
-    p.product_name,
-    p.sku,
 
     -- line measures
     oi.quantity,
@@ -37,4 +30,3 @@ select
 
 from order_items oi
 join orders o using (order_id)
-join products p on p.product_id = oi.product_id

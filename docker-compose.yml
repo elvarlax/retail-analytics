@@ -18,7 +18,9 @@ services:
       retries: 5
 
   extract:
-    build: ./extract
+    build:
+      context: .
+      dockerfile: extract/Dockerfile
     container_name: retail_analytics_extract
     restart: "no"
     depends_on:
@@ -30,7 +32,6 @@ services:
       SOURCE_DB_NAME: retail_inventory
       SOURCE_DB_USER: postgres
       SOURCE_DB_PASSWORD: postgres
-
       TARGET_DB_HOST: warehouse
       TARGET_DB_PORT: 5432
       TARGET_DB_NAME: retail_warehouse
@@ -38,11 +39,10 @@ services:
       TARGET_DB_PASSWORD: postgres
 
   dbt:
-    image: ghcr.io/dbt-labs/dbt-postgres:1.9.0
+    build:
+      context: .
+      dockerfile: dbt/Dockerfile
     container_name: retail_analytics_dbt
-    volumes:
-      - ./dbt:/usr/app
-    working_dir: /usr/app
     depends_on:
       warehouse:
         condition: service_healthy
@@ -50,6 +50,8 @@ services:
       DBT_PROFILES_DIR: /usr/app
     profiles:
       - dbt
+    volumes:
+      - ./dbt:/usr/app
 
 volumes:
   warehouse_data:

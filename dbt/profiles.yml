@@ -8,5 +8,7 @@ retail_analytics:
       user: postgres
       password: postgres
       dbname: retail_warehouse
-      schema: analytics
+      # generate_schema_name macro routes each layer to its own schema
+      # (staging / intermediate / marts). This default is never used directly.
+      schema: public
       threads: 4

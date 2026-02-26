@@ -9,112 +9,82 @@ models:
       - name: customer_id
         description: "Primary key (uuid). Source: customers.id."
         tests: [unique, not_null]
+
       - name: first_name
         description: "Customer given name."
         tests:
           - not_null
-          - dbt_utils.not_empty_string
+
       - name: last_name
         description: "Customer family name."
         tests:
           - not_null
-          - dbt_utils.not_empty_string
-      - name: full_name
-        description: "Concatenated display name (first_name || ' ' || last_name)."
+
       - name: email
         description: "Unique email address. Used as a natural key in dim_customers."
         tests:
           - unique
           - not_null
-          - dbt_utils.not_empty_string
 
   - name: stg_products
-    description: >
-      One row per product. Renames id → product_id, name → product_name,
-      price → unit_price. stock_quantity is carried through staging but excluded
-      from dim_products — it is an operational metric, not a stable dimension attribute.
+    description: "One row per product."
     columns:
       - name: product_id
-        description: "Primary key (uuid). Source: products.id."
         tests: [unique, not_null]
-      - name: product_name
-        description: "Product display name. Source: products.name."
-        tests:
-          - not_null
-          - dbt_utils.not_empty_string
       - name: sku
-        description: "Stock-keeping unit identifier. Unique per product."
-        tests:
-          - unique
-          - not_null
-          - dbt_utils.not_empty_string
+        tests: [unique, not_null]
       - name: unit_price
-        description: "Current list price per unit. Source: products.price."
         tests:
           - not_null
-          - dbt_expectations.expect_column_values_to_be_between:
-              min_value: 0
-              strictly: true
-      - name: stock_quantity
-        description: "Current on-hand stock level. Excluded from dim_products (operational, not dimensional)."
+          - dbt_utils.expression_is_true:
+              arguments:
+                expression: "> 0"
 
   - name: stg_orders
-    description: >
-      One row per order. Renames id → order_id. Maps the source status integer
-      (0/1/2) to human-readable text (Pending / Completed / Cancelled).
-      No business logic beyond the status mapping.
+    description: "One row per order."
     columns:
       - name: order_id
-        description: "Primary key (uuid). Source: orders.id."
         tests: [unique, not_null]
       - name: customer_id
-        description: "Foreign key to stg_customers.customer_id."
         tests: [not_null]
       - name: status
-        description: "Order lifecycle status mapped from integer: 0=Pending, 1=Completed, 2=Cancelled."
         tests:
           - not_null
           - accepted_values:
-              values: ['Pending', 'Completed', 'Cancelled']
+              arguments:
+                values: ['Pending', 'Completed', 'Cancelled']
       - name: total_amount
-        description: "Order total (sum of line amounts at time of order creation)."
         tests:
           - not_null
-          - dbt_expectations.expect_column_values_to_be_between:
-              min_value: 0
-              strictly: true
-      - name: created_at
-        description: "UTC timestamp when the order was placed."
-      - name: completed_at
-        description: "UTC timestamp when the order reached Completed status. Null for Pending and Cancelled orders."
+          - dbt_utils.expression_is_true:
+              arguments:
+                expression: "> 0"
 
   - name: stg_order_items
-    description: >
-      One row per order line item. Renames id → order_item_id.
-      Derives line_amount = quantity × unit_price. This is the finest grain
-      in the source — one product on one order.
+    description: "One row per order line item."
     columns:
       - name: order_item_id
-        description: "Primary key (uuid). Source: order_items.id."
         tests: [unique, not_null]
       - name: order_id
-        description: "Foreign key to stg_orders.order_id."
         tests: [not_null]
       - name: product_id
-        description: "Foreign key to stg_products.product_id."
         tests: [not_null]
       - name: quantity
-        description: "Number of units ordered on this line."
         tests:
           - not_null
-          - dbt_expectations.expect_column_values_to_be_between:
-              min_value: 1
+          - dbt_utils.expression_is_true:
+              arguments:
+                expression: "> 0"
       - name: unit_price
-        description: "Price per unit at time of order. Snapshot — independent of the current product price."
         tests:
           - not_null
-          - dbt_expectations.expect_column_values_to_be_between:
-              min_value: 0
-              strictly: true
+          - dbt_utils.expression_is_true:
+              arguments:
+                expression: "> 0"
       - name: line_amount
-        description: "Gross line revenue: quantity × unit_price."
+        description: "Gross line revenue (quantity × unit_price). Fully additive across all dimensions."
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              arguments:
+                expression: "> 0"

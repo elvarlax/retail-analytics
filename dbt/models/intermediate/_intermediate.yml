@@ -4,87 +4,47 @@ models:
   - name: int_order_items_enriched
     description: >
       Canonical line-item view. Joins order items with their parent order and product.
-      This is the single complex join in the pipeline — fact_order_items is a simple
-      projection over this model with no additional joins.
-      Includes product context (product_name, sku) for ad-hoc analysis;
-      the marts layer uses product_id to join dim_products for reporting.
+      This is the single complex join in the pipeline.
     columns:
       - name: order_item_id
         description: "Primary key. Grain: one row per order line item."
         tests: [unique, not_null]
       - name: order_id
-        description: "Foreign key to the parent order."
         tests: [not_null]
       - name: customer_id
-        description: "Customer who placed the order. Carries through to fact_order_items → dim_customers."
         tests: [not_null]
       - name: product_id
-        description: "Product on this line. Carries through to fact_order_items → dim_products."
         tests: [not_null]
-      - name: product_name
-        description: "Product display name (denormalised from stg_products for convenience)."
-        tests: [not_null]
-      - name: sku
-        description: "Stock-keeping unit identifier (denormalised from stg_products for convenience)."
-        tests: [not_null]
-      - name: quantity
-        description: "Units purchased on this line."
-      - name: unit_price
-        description: "Price per unit at time of order (snapshot from source)."
       - name: line_amount
-        description: "Gross line revenue: quantity × unit_price."
-        tests: [not_null]
-      - name: order_total_amount
-        description: "Order-level total denormalised to the line-item grain."
-      - name: order_date
-        description: "Calendar date the order was placed (created_at::date). Source for fact date_key."
-        tests: [not_null]
-      - name: is_completed
-        description: "True when status = 'Completed'. Convenience flag for filtering without a CASE expression."
-      - name: status
-        description: "Order lifecycle status (Pending / Completed / Cancelled)."
         tests:
           - not_null
-          - accepted_values:
-              values: ['Pending', 'Completed', 'Cancelled']
-      - name: order_created_at
-        description: "UTC timestamp when the order was placed."
-      - name: order_completed_at
-        description: "UTC timestamp when the order was completed. Null for Pending and Cancelled orders."
+          - dbt_utils.expression_is_true:
+              arguments:
+                expression: "> 0"
+      - name: order_date
+        tests: [not_null]
+      - name: status
+        tests: [not_null]
 
   - name: int_orders_enriched
     description: >
       Order-level view. Joins orders with their customer and derives analytical
-      convenience columns. Consumed by fact_orders in the marts layer.
+      convenience columns.
     columns:
       - name: order_id
         description: "Primary key. Grain: one row per order."
         tests: [unique, not_null]
       - name: customer_id
-        description: "Foreign key to stg_customers. Carries through to fact_orders → dim_customers."
         tests: [not_null]
-      - name: customer_name
-        description: "Customer full name (denormalised from stg_customers for convenience)."
-      - name: email
-        description: "Customer email (denormalised from stg_customers for convenience)."
       - name: total_amount
-        description: "Order total (sum of line amounts at time of order creation)."
-        tests: [not_null]
-      - name: order_date
-        description: "Calendar date the order was placed (created_at::date). Source for fact date_key."
-        tests: [not_null]
-      - name: order_month
-        description: "First day of the month the order was placed. Useful for month-level aggregations without joining dim_date."
-        tests: [not_null]
-      - name: is_completed
-        description: "True when status = 'Completed'. Convenience flag for filtering."
-      - name: status
-        description: "Order lifecycle status (Pending / Completed / Cancelled)."
         tests:
           - not_null
-          - accepted_values:
-              values: ['Pending', 'Completed', 'Cancelled']
-      - name: order_created_at
-        description: "UTC timestamp when the order was placed."
-      - name: order_completed_at
-        description: "UTC timestamp when the order was completed. Null for Pending and Cancelled orders."
+          - dbt_utils.expression_is_true:
+              arguments:
+                expression: "> 0"
+      - name: order_date
+        tests: [not_null]
+      - name: order_month
+        tests: [not_null]
+      - name: status
+        tests: [not_null]

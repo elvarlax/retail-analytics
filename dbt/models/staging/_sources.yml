@@ -1,48 +1,24 @@
 version: 2
 
 sources:
-  - name: raw
-    schema: raw
-    description: "Raw tables loaded verbatim from the RetailInventory OLTP database."
+  - name: events
+    schema: events
+    description: "Raw events ingested from Azure Service Bus (retail.events topic)."
+
     tables:
-      - name: customers
-        description: "Registered customers."
-        columns:
-          - name: id
-            description: "Primary key (uuid). Renamed to customer_id in staging."
-          - name: first_name
-          - name: last_name
-          - name: email
+      - name: retail_events
+        description: "One row per event received from the RetailInventory service."
 
-      - name: products
-        description: "Product catalogue."
         columns:
           - name: id
-            description: "Primary key (uuid). Renamed to product_id in staging."
-          - name: name
-          - name: sku
-          - name: price
-            description: "Unit sale price. Renamed to unit_price in staging."
-          - name: stock_quantity
-
-      - name: orders
-        description: "Customer orders with status and totals."
-        columns:
-          - name: id
-            description: "Primary key (uuid). Renamed to order_id in staging."
-          - name: customer_id
-          - name: status
-            description: "Order status as integer. 0=Pending, 1=Completed, 2=Cancelled."
-          - name: total_amount
-          - name: created_at
-          - name: completed_at
-
-      - name: order_items
-        description: "Individual line items within each order."
-        columns:
-          - name: id
-            description: "Primary key (uuid). Renamed to order_item_id in staging."
-          - name: order_id
-          - name: product_id
-          - name: quantity
-          - name: unit_price
+            description: "Surrogate key for ingestion order."
+          - name: event_type
+            description: "Event type (CustomerCreatedV1, ProductCreatedV1, OrderPlacedV1, OrderStatusChangedV1)."
+          - name: payload
+            description: "Full event payload as JSONB."
+          - name: source
+            description: "Publishing service, from Service Bus application properties."
+          - name: occurred_at_utc
+            description: "When the event occurred in the source system."
+          - name: received_at
+            description: "When the consumer wrote the row."

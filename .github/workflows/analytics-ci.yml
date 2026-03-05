@@ -1,4 +1,4 @@
-name: Retail Analytics - ELT & dbt CI
+name: Retail Analytics - Event-Driven dbt CI
 
 on:
   push:
@@ -11,20 +11,6 @@ jobs:
     runs-on: ubuntu-latest
 
     services:
-      postgres:
-        image: postgres:16
-        ports:
-          - 5433:5432
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: retail_inventory
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 5
-
       warehouse:
         image: postgres:16
         ports:
@@ -43,35 +29,6 @@ jobs:
       - name: Checkout retail-analytics
         uses: actions/checkout@v4
 
-      # retail-inventory owns the OLTP schema — migrations create the source tables
-      - name: Checkout retail-inventory
-        uses: actions/checkout@v4
-        with:
-          repository: elvarlax/retail-inventory
-          path: retail-inventory
-
-      - name: Set up .NET 10
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "10.0.x"
-
-      - name: Install dotnet-ef
-        run: |
-          dotnet tool install --global dotnet-ef
-          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
-
-      - name: Apply retail-inventory migrations
-        working-directory: retail-inventory
-        env:
-          ConnectionStrings__DefaultConnection: Host=localhost;Port=5433;Database=retail_inventory;Username=postgres;Password=postgres
-        run: |
-          dotnet restore
-          dotnet build --configuration Release
-          dotnet ef database update \
-            --configuration Release \
-            --project RetailInventory.Api/RetailInventory.Api.csproj \
-            --startup-project RetailInventory.Api/RetailInventory.Api.csproj
-
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
@@ -82,25 +39,17 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run extract
-        run: python extract/extract.py
+      - name: Initialize event source table
         env:
-          SOURCE_DB_HOST: localhost
-          SOURCE_DB_PORT: 5433
-          SOURCE_DB_NAME: retail_inventory
-          SOURCE_DB_USER: postgres
-          SOURCE_DB_PASSWORD: postgres
-          TARGET_DB_HOST: localhost
-          TARGET_DB_PORT: 5434
-          TARGET_DB_NAME: retail_warehouse
-          TARGET_DB_USER: postgres
-          TARGET_DB_PASSWORD: postgres
+          PGPASSWORD: postgres
+        run: |
+          psql "host=localhost port=5434 dbname=retail_warehouse user=postgres" -c "CREATE SCHEMA IF NOT EXISTS events;"
+          psql "host=localhost port=5434 dbname=retail_warehouse user=postgres" -c "CREATE TABLE IF NOT EXISTS events.retail_events (id BIGSERIAL PRIMARY KEY, event_type TEXT NOT NULL, payload JSONB NOT NULL, source TEXT, occurred_at_utc TIMESTAMPTZ, received_at TIMESTAMPTZ NOT NULL DEFAULT NOW());"
 
       - name: dbt deps
         working-directory: dbt
         run: dbt deps
 
-      # Services run on localhost in CI, not via Docker service names
       - name: dbt build
         working-directory: dbt
         run: dbt build --profiles-dir .

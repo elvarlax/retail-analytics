@@ -1,15 +1,13 @@
--- Staging: products
--- Renames source columns to semantic names (id → product_id, name → product_name,
--- price → unit_price). stock_quantity is carried through staging but intentionally
--- excluded from dim_products — it is an operational metric that changes continuously
--- and does not belong in a slowly changing dimension.
 with source as (
-    select * from {{ source('raw', 'products') }}
+    select * from {{ source('events', 'retail_events') }}
+    where event_type = 'ProductCreatedV1'
 )
+
 select
-    id as product_id,
-    name as product_name,
-    sku,
-    price as unit_price,
-    stock_quantity
+    (payload ->> 'ProductId')::uuid    as product_id,
+    payload ->> 'Name'                 as product_name,
+    payload ->> 'SKU'                  as sku,
+    (payload ->> 'Price')::numeric     as unit_price,
+    (payload ->> 'StockQuantity')::int as stock_quantity,
+    occurred_at_utc                    as created_at
 from source

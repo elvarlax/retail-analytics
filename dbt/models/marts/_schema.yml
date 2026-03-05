@@ -3,33 +3,32 @@ version: 2
 models:
   - name: dim_customers
     description: >
-      Customer dimension. One row per customer. Conforms to the star schema —
-      join to fact_order_items or fact_orders on customer_id.
+      Customer dimension. One row per customer.
     columns:
-      - name: customer_id
-        description: "Primary key (uuid)."
+      - name: customer_key
+        description: "Surrogate key."
         tests: [unique, not_null]
-      - name: first_name
-        description: "Customer given name."
-      - name: last_name
-        description: "Customer family name."
+      - name: customer_id
+        description: "Natural key from source system."
+        tests: [unique, not_null]
       - name: full_name
-        description: "Concatenated display name for reporting."
+        description: "Concatenated display name."
       - name: email
-        description: "Unique email address. Natural key."
+        description: "Unique email address."
         tests: [unique, not_null]
 
   - name: dim_products
     description: >
       Product dimension. One row per product.
     columns:
-      - name: product_id
-        description: "Primary key (uuid)."
+      - name: product_key
+        description: "Surrogate key."
         tests: [unique, not_null]
-      - name: product_name
-        description: "Product display name."
+      - name: product_id
+        description: "Natural key from source system."
+        tests: [unique, not_null]
       - name: sku
-        description: "Stock-keeping unit identifier. Unique per product."
+        description: "Stock-keeping unit. Unique per product."
         tests: [unique, not_null]
       - name: unit_price
         description: "Current list price per unit."
@@ -60,20 +59,20 @@ models:
         tests: [unique, not_null]
       - name: order_id
         tests: [not_null]
-      - name: customer_id
+      - name: customer_key
         tests:
           - not_null
           - relationships:
               arguments:
                 to: ref('dim_customers')
-                field: customer_id
-      - name: product_id
+                field: customer_key
+      - name: product_key
         tests:
           - not_null
           - relationships:
               arguments:
                 to: ref('dim_products')
-                field: product_id
+                field: product_key
       - name: date_key
         tests:
           - not_null
@@ -83,12 +82,28 @@ models:
                 field: date_key
       - name: quantity
         tests:
+          - not_null
           - dbt_utils.expression_is_true:
               arguments:
                 expression: "> 0"
       - name: unit_price
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              arguments:
+                expression: "> 0"
       - name: line_amount
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              arguments:
+                expression: "> 0"
       - name: order_total_amount
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              arguments:
+                expression: "> 0"
       - name: is_completed
       - name: status
         tests:
@@ -105,13 +120,13 @@ models:
       - name: order_id
         description: "Primary key."
         tests: [unique, not_null]
-      - name: customer_id
+      - name: customer_key
         tests:
           - not_null
           - relationships:
               arguments:
                 to: ref('dim_customers')
-                field: customer_id
+                field: customer_key
       - name: date_key
         tests:
           - not_null
@@ -132,5 +147,6 @@ models:
               arguments:
                 values: ['Pending', 'Completed', 'Cancelled']
       - name: order_month
+        tests: [not_null]
       - name: order_created_at
       - name: order_completed_at

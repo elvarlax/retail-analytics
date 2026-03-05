@@ -1,17 +1,23 @@
--- Staging: order_items
--- Renames id → order_item_id. Derives line_amount as the first computed
--- measure in the pipeline — quantity × unit_price at the time of the order.
--- unit_price is a snapshot of the product price when the order was placed
--- and is independent of the current price in dim_products.
-with source as (
-    select * from {{ source('raw', 'order_items') }}
+with orders as (
+    select * from {{ source('events', 'retail_events') }}
+    where event_type = 'OrderPlacedV1'
+),
+
+items as (
+    select
+        (payload ->> 'OrderId')::uuid   as order_id,
+        (item ->> 'ProductId')::uuid    as product_id,
+        (item ->> 'Quantity')::int      as quantity,
+        (item ->> 'UnitPrice')::numeric as unit_price
+    from orders,
+    jsonb_array_elements(payload -> 'Items') as item
 )
+
 select
-    id as order_item_id,
+    {{ dbt_utils.generate_surrogate_key(['order_id', 'product_id']) }} as order_item_id,
     order_id,
     product_id,
     quantity,
     unit_price,
-    -- Gross line revenue; fully additive across all dimensions
     quantity * unit_price as line_amount
-from source
+from items

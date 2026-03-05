@@ -17,26 +17,27 @@ services:
       timeout: 5s
       retries: 5
 
-  extract:
+  consumer:
     build:
       context: .
-      dockerfile: extract/Dockerfile
-    container_name: retail_analytics_extract
-    restart: "no"
+      dockerfile: consumer/Dockerfile
+    container_name: retail_analytics_consumer
+    restart: always
     depends_on:
       warehouse:
         condition: service_healthy
+    extra_hosts:
+      - "localhost:host-gateway"
     environment:
-      SOURCE_DB_HOST: host.docker.internal
-      SOURCE_DB_PORT: 5433
-      SOURCE_DB_NAME: retail_inventory
-      SOURCE_DB_USER: postgres
-      SOURCE_DB_PASSWORD: postgres
-      TARGET_DB_HOST: warehouse
-      TARGET_DB_PORT: 5432
-      TARGET_DB_NAME: retail_warehouse
-      TARGET_DB_USER: postgres
-      TARGET_DB_PASSWORD: postgres
+      SERVICE_BUS_CONNECTION_STRING: ${SERVICE_BUS_CONNECTION_STRING}
+      SERVICE_BUS_TOPIC: ${SERVICE_BUS_TOPIC:-retail.events}
+      SERVICE_BUS_SUBSCRIPTION: ${SERVICE_BUS_SUBSCRIPTION:-analytics-sub}
+      MAX_RETRIES: ${MAX_RETRIES:-3}
+      WAREHOUSE_DB_HOST: warehouse
+      WAREHOUSE_DB_PORT: 5432
+      WAREHOUSE_DB_NAME: retail_warehouse
+      WAREHOUSE_DB_USER: postgres
+      WAREHOUSE_DB_PASSWORD: postgres
 
   dbt:
     build:

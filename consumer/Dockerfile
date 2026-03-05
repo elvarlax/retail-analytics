@@ -6,6 +6,6 @@ COPY requirements.txt ./requirements.txt
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY extract/extract.py .
+COPY consumer/consumer.py .
 
-CMD ["python", "extract.py"]
+CMD ["python", "consumer.py"]

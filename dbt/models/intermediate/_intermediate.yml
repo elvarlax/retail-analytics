@@ -41,6 +41,8 @@ models:
                 expression: "> 0"
       - name: order_date
         tests: [not_null]
+      - name: order_status_changed_at
+        description: "Timestamp of the most recent status change for the parent order. NULL for orders still in their initial Pending state."
       - name: status
         tests:
           - not_null
@@ -68,6 +70,8 @@ models:
         tests: [not_null]
       - name: order_month
         tests: [not_null]
+      - name: order_status_changed_at
+        description: "Timestamp of the most recent status change. NULL for orders still in their initial Pending state."
       - name: status
         tests:
           - not_null

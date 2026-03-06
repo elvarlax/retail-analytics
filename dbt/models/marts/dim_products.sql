@@ -9,5 +9,6 @@ select
     product_id,
     product_name,
     sku,
-    unit_price
+    unit_price,
+    image_url
 from products

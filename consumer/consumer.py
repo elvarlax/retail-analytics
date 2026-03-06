@@ -53,6 +53,10 @@ def setup_schema(conn):
             )
         """)
         cur.execute("""
+            CREATE INDEX IF NOT EXISTS idx_retail_events_event_type
+            ON events.retail_events (event_type)
+        """)
+        cur.execute("""
             CREATE INDEX IF NOT EXISTS idx_retail_events_occurred_at_utc
             ON events.retail_events (occurred_at_utc)
         """)

@@ -39,6 +39,8 @@ models:
           - dbt_utils.expression_is_true:
               arguments:
                 expression: "> 0"
+      - name: image_url
+        description: "Optional product image URL for storefront display. NULL for products created before image support was added."
 
   - name: stg_orders
     description: "One row per order."
@@ -59,6 +61,8 @@ models:
           - dbt_utils.expression_is_true:
               arguments:
                 expression: "> 0"
+      - name: status_changed_at
+        description: "Timestamp of the most recent status change event. NULL for orders still in their initial Pending state."
 
   - name: stg_order_items
     description: "One row per order line item."

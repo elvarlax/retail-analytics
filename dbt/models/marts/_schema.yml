@@ -32,6 +32,8 @@ models:
         tests: [unique, not_null]
       - name: unit_price
         description: "Current list price per unit."
+      - name: image_url
+        description: "Optional product image URL for storefront display. NULL for products without an image."
 
   - name: dim_date
     description: >
@@ -111,6 +113,8 @@ models:
               arguments:
                 values: ['Pending', 'Completed', 'Cancelled']
       - name: order_created_at
+      - name: order_status_changed_at
+        description: "Timestamp of the most recent status change for the parent order."
       - name: order_completed_at
 
   - name: fact_orders
@@ -149,4 +153,6 @@ models:
       - name: order_month
         tests: [not_null]
       - name: order_created_at
+      - name: order_status_changed_at
+        description: "Timestamp of the most recent status change."
       - name: order_completed_at

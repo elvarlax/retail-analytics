@@ -12,14 +12,15 @@ with enriched as (
     select * from {{ ref('int_order_items_enriched') }}
 
     {% if is_incremental() %}
-    -- Picks up new orders and orders whose status changed since last run.
+    -- Picks up new orders and any order whose status changed since last run
+    -- (covers both Completed and Cancelled transitions).
     where order_created_at > (select max(order_created_at) from {{ this }})
        or (
-           order_completed_at is not null
-           and order_completed_at > (
-               select coalesce(max(order_completed_at), '1900-01-01')
+           order_status_changed_at is not null
+           and order_status_changed_at > (
+               select coalesce(max(order_status_changed_at), '1900-01-01')
                from {{ this }}
-               where order_completed_at is not null
+               where order_status_changed_at is not null
            )
        )
     {% endif %}
@@ -46,6 +47,7 @@ select
     e.is_completed,
     e.status,
     e.order_created_at,
+    e.order_status_changed_at,
     e.order_completed_at
 from enriched e
 join customers c on e.customer_id = c.customer_id

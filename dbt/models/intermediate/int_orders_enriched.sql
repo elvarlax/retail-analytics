@@ -11,5 +11,6 @@ select
     (status = 'Completed')                as is_completed,
     status,
     created_at                            as order_created_at,
+    status_changed_at                     as order_status_changed_at,
     completed_at                          as order_completed_at
 from orders

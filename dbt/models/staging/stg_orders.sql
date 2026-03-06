@@ -24,6 +24,7 @@ select
     coalesce(s.status, 'Pending')          as status,
     (o.payload ->> 'TotalAmount')::numeric as total_amount,
     o.occurred_at_utc                      as created_at,
+    s.status_changed_at,
     case when s.status = 'Completed' then s.status_changed_at end as completed_at
 from orders o
 left join latest_status s on (o.payload ->> 'OrderId')::uuid = s.order_id

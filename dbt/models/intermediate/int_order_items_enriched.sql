@@ -19,6 +19,7 @@ select
     (o.status = 'Completed')      as is_completed,
     o.status,
     o.created_at                  as order_created_at,
+    o.status_changed_at           as order_status_changed_at,
     o.completed_at                as order_completed_at
 from order_items oi
 join orders o using (order_id)

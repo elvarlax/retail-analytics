@@ -44,7 +44,9 @@ jobs:
           PGPASSWORD: postgres
         run: |
           psql "host=localhost port=5434 dbname=retail_warehouse user=postgres" -c "CREATE SCHEMA IF NOT EXISTS events;"
-          psql "host=localhost port=5434 dbname=retail_warehouse user=postgres" -c "CREATE TABLE IF NOT EXISTS events.retail_events (id BIGSERIAL PRIMARY KEY, event_type TEXT NOT NULL, payload JSONB NOT NULL, source TEXT, occurred_at_utc TIMESTAMPTZ, received_at TIMESTAMPTZ NOT NULL DEFAULT NOW());"
+          psql "host=localhost port=5434 dbname=retail_warehouse user=postgres" -c "CREATE TABLE IF NOT EXISTS events.retail_events (event_id UUID PRIMARY KEY, event_type TEXT NOT NULL, payload JSONB NOT NULL, source TEXT, occurred_at_utc TIMESTAMPTZ, received_at TIMESTAMPTZ NOT NULL DEFAULT NOW());"
+          psql "host=localhost port=5434 dbname=retail_warehouse user=postgres" -c "CREATE INDEX IF NOT EXISTS idx_retail_events_event_type ON events.retail_events (event_type);"
+          psql "host=localhost port=5434 dbname=retail_warehouse user=postgres" -c "CREATE INDEX IF NOT EXISTS idx_retail_events_occurred_at_utc ON events.retail_events (occurred_at_utc);"
 
       - name: dbt deps
         working-directory: dbt

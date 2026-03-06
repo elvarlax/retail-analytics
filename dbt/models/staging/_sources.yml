@@ -10,8 +10,8 @@ sources:
         description: "One row per event received from the RetailInventory service."
 
         columns:
-          - name: id
-            description: "Surrogate key for ingestion order."
+          - name: event_id
+            description: "UUID primary key. Sourced from the EventId field in the event payload."
           - name: event_type
             description: "Event type (CustomerCreatedV1, ProductCreatedV1, OrderPlacedV1, OrderStatusChangedV1)."
           - name: payload
